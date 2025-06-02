@@ -75,7 +75,6 @@
 // };
 
 // startServer();
-
 import { v2 as cloudinary } from 'cloudinary';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -84,31 +83,48 @@ import Razorpay from 'razorpay';
 import { conn } from './database/db.js';
 import serverless from 'serverless-http';
 
-// Load env vars
 dotenv.config();
 
-// Cloudinary config
+// Cloudinary Config
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// Razorpay instance
+// Razorpay Instance
 export const instance = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
-// Express app
 const app = express();
+
+// CORS Middleware
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' ? 'https://your-production-url.com' : '*',
+  origin: process.env.NODE_ENV === 'production' ? process.env.FRONTEND_URL : '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'token'],
 }));
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
+// Lazy MongoDB Connection
+let isDbConnected = false;
+app.use(async (req, res, next) => {
+  if (!isDbConnected) {
+    try {
+      await conn();
+      isDbConnected = true;
+      console.log("✅ MongoDB Connected");
+    } catch (error) {
+      console.error("❌ MongoDB Connection Error:", error);
+      return res.status(500).json({ message: 'Database connection failed' });
+    }
+  }
+  next();
+});
 
 // Routes
 import adminRoutes from './routes/admin.js';
@@ -127,14 +143,11 @@ app.use('/api', adminRoutes);
 app.use('/api', instructorRoutes);
 app.use('/api', questionRoutes);
 
-// Error handling
+// Error Handler
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  console.error('Unhandled Error:', err.stack);
   res.status(500).json({ message: 'Internal Server Error', error: err.message });
 });
 
-// Ensure DB is connected before export
-await conn();
-
-// Export handler for Vercel
+// Export for Vercel
 export default serverless(app);
