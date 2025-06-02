@@ -81,7 +81,7 @@ import dotenv from 'dotenv';
 import express from 'express';
 import Razorpay from 'razorpay';
 import { conn } from './database/db.js';
-import serverless from 'serverless-http';
+// import serverless from 'serverless-http';
 
 dotenv.config();
 
@@ -150,4 +150,5 @@ app.use((err, req, res, next) => {
 });
 
 // Export for Vercel
-export default serverless(app);
+// export default serverless(app);
+export default app;
